@@ -1,18 +1,22 @@
 package miro_test
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"io/ioutil"
-	"gopkg.in/yaml.v2"
-	bosh "github.com/pivotal-cf/on-demand-services-sdk/bosh"
 
-	"github.com/ferozjilla/boxes-and-lines"
-	"net/http"
+	bosh "github.com/pivotal-cf/on-demand-services-sdk/bosh"
+	"gopkg.in/yaml.v2"
+
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+
+	"github.com/ferozjilla/boxes-and-lines/miro"
 )
 
 var MIRO_API_ACCESS_TOKEN string = os.Getenv("MIRO_API_ACCESS_TOKEN")
@@ -24,7 +28,7 @@ var _ = Describe("Miro Drawer", func() {
 		miroDrawer := miro.Drawer{}
 		var boshManifest bosh.BoshManifest
 
-		manifestBytes, err := ioutil.ReadFile("assets/simple.yml")
+		manifestBytes, err := ioutil.ReadFile("../assets/simple.yml")
 		Expect(err).NotTo(HaveOccurred())
 		err = yaml.Unmarshal(manifestBytes, &boshManifest)
 		Expect(err).NotTo(HaveOccurred())
@@ -33,20 +37,25 @@ var _ = Describe("Miro Drawer", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("creates a new Miro board", func() {
+	AfterEach(func() {
+		err := deleteMiroBoard(id)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("Draws a simple manifest", func() {
+		By("Creating a new Miro board")
 		Expect(miroBoardExists(id)).To(BeTrue())
+		By("Drawing boxes for the instance groups")
+		By("Drawing as many boxes as the number of instances for an instance group")
+		By("Labeling each box with the name of the instance group")
 	})
 
-	It("does not overwrite an existing user board", func() {
-
-	})
-
-	Context("Simple drawing", func() {
-		Context("Box", func() {
-			It("Can draw a box", func() {
-
-			})
-		})
+	It("Draws a complex manifest", func() {
+		By("Creating a new Miro board")
+		Expect(miroBoardExists(id)).To(BeTrue())
+		By("Drawing boxes for the instance groups")
+		By("Drawing as many boxes as the number of instances for an instance group")
+		By("Labeling each box with the name of the instance group")
 	})
 })
 
@@ -67,6 +76,12 @@ func miroBoardExists(id string) (bool, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	boardExists := res.StatusCode == 200
-	return boardExists, nil
+	if res.StatusCode != 200 {
+		return false, errors.New(fmt.Sprintf("http request to miro failed with exit code: %+v", res.StatusCode))
+	}
+	return true, nil
+}
+
+func deleteMiroBoard(id string) error {
+	return errors.New("Not implemented")
 }

@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -eux
+
+. ./setup.bash
+
+id=$(curl --request POST \
+  --url https://api.miro.com/v1/boards \
+  --header "authorization: Bearer $MIRO_API_ACCESS_TOKEN" \
+  --header 'content-type: application/json' \
+  --data '{"name":"Feroz Board","description":"This is a test board","sharingPolicy":{"access":"private","accountAccess":"private"}}' | jq .id)
+
+echo "Created Miro board with id: $id"

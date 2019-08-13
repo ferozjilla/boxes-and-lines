@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -eux
+
+. ./setup.bash
+
+if [ "$#" -ne 1 ]; then
+    echo "Miro boards require an ID to be deleted"
+    echo "Usage: delete-board u3absjdasl"
+fi
+
+id=$1
+
+curl --request DELETE \
+  --header "authorization: Bearer $MIRO_API_ACCESS_TOKEN" \
+  --url https://api.miro.com/v1/boards/$id
+

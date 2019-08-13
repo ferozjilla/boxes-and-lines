@@ -1,0 +1,371 @@
+instance_groups:
+- azs:
+  - z1
+  - z2
+  instances: 3
+  jobs:
+  - name: rabbitmq-server
+    properties:
+      rabbitmq-server:
+        administrators:
+          broker:
+            password: pwd
+            username: broker
+          management:
+            password: pwd
+            username: user
+        cluster_partition_handling: autoheal
+        cookie: my secret cookie
+        plugins:
+        - rabbitmq_management
+        - rabbitmq_mqtt
+        - rabbitmq_stomp
+        ports:
+        - 5672
+        - 5671
+        - 1883
+        - 8883
+        - 61613
+        - 61614
+        - 15672
+        - 15674
+        version: 3.7
+    release: cf-rabbitmq
+  - name: check-logs-test
+    properties:
+      check-logs-test:
+        files:
+        - /var/vcap/sys/log/rabbitmq-server/rabbit@[a-z0-9]+.log
+    release: cf-rabbitmq-test
+  - name: syslog-configuration-test
+    properties:
+      syslog-configuration-test:
+        watched-log-files:
+        - /var/vcap/sys/log/rabbitmq-server/rabbit@*.log
+        - /var/vcap/sys/log/rabbitmq-server/rabbit@*-sasl.log
+        - /var/vcap/sys/log/rabbitmq-server/startup_stderr.log
+        - /var/vcap/sys/log/rabbitmq-server/startup_stdout.log
+        - /var/vcap/sys/log/rabbitmq-server/shutdown_stdout.log
+        - /var/vcap/sys/log/rabbitmq-server/shutdown_stderr.log
+        - /var/vcap/sys/log/rabbitmq-server/management-ui/access.log*
+        - /var/vcap/sys/log/rabbitmq-server/upgrade.log
+        - /var/vcap/sys/log/rabbitmq-server/init.log
+        - /var/vcap/sys/log/rabbitmq-server/node-check.log
+        - /var/vcap/sys/log/rabbitmq-server/cluster-check.log
+        - /var/vcap/sys/log/rabbitmq-server/pre-start.log
+    release: cf-rabbitmq-test
+  - name: permissions-test
+    properties:
+      permissions-test:
+        directories:
+        - /var/vcap/jobs/rabbitmq-server
+        - /var/vcap/store/rabbitmq
+        - /var/vcap/sys/log
+    release: cf-rabbitmq-test
+  - name: check-file-descriptor-limits-test
+    release: cf-rabbitmq-test
+  - name: service-metrics
+    properties:
+      service_metrics:
+        execution_interval_seconds: 30
+        metrics_command: /var/vcap/packages/rabbitmq-server-metrics/bin/rabbitmq-server-metrics
+        metrics_command_args:
+        - -erlangBinPath=/var/vcap/packages/erlang/bin/
+        - -rabbitmqCtlPath=/var/vcap/packages/rabbitmq-server/bin/rabbitmqctl
+        - -logPath=/var/vcap/sys/log/service-metrics/rabbitmq-server-metrics.log
+        - -rabbitmqUsername=user
+        - -rabbitmqPassword=pwd
+        - -rabbitmqApiEndpoint=http://127.0.0.1:15672
+        origin: cf-rabbitmq
+        tls:
+          ca: ((service-metrics.ca))
+          cert: ((service-metrics.certificate))
+          key: ((service-metrics.private_key))
+    release: service-metrics
+  - name: rabbitmq-server-metrics
+    release: rabbitmq-metrics
+  - name: syslog_forwarder
+    properties:
+      syslog:
+        address: logs4.papertrailapp.com
+        custom_rule: |
+          module(load="imfile")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/rabbit@*-sasl.log"
+                Tag="rabbitmq_server_sasl")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/rabbit@*.log"
+                Tag="rabbitmq_server")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/startup_stderr.log"
+                Tag="rabbitmq_server_startup_stderr")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/startup_stdout.log"
+                Tag="rabbitmq_server_startup_stdout")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/shutdown_stdout.log"
+                Tag="rabbitmq_server_shutdown_stdout")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/shutdown_stderr.log"
+                Tag="rabbitmq_server_shutdown_stderr")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/management-ui/access.log*"
+                Tag="rabbitmq_server_http_api_access")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/upgrade.log"
+                Tag="rabbitmq_server_upgrade")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/init.log"
+                Tag="rabbitmq_server_init")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/node-check.log"
+                Tag="rabbit_server_node_check")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/cluster-check.log"
+                Tag="rabbit_server_cluster_check")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/post-deploy.stderr.log"
+                Tag="rabbitmq_server_post_deploy_stderr")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/post-deploy.stdout.log"
+                Tag="rabbitmq_server_post_deploy_stdout")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/drain.log"
+                Tag="rabbitmq_server_drain")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-server/pre-start.log"
+                Tag="rabbitmq_server_pre_start")
+        forward_files: false
+        port: 51344
+        transport: tcp
+    release: syslog
+  - name: user_add
+    properties:
+      users:
+      - crypted_password: pwd
+        name: vcap
+    release: os-conf
+  - consumes:
+      doppler:
+        deployment: cf
+        from: doppler
+    name: loggregator_agent
+    properties:
+      deployment: cf-rabbitmq
+      loggregator:
+        tls:
+          agent:
+            cert: |
+              -----BEGIN CERTIFICATE-----
+              ca_cert
+              -----END CERTIFICATE-----
+            key: |
+              -----BEGIN RSA PRIVATE KEY-----
+              key
+              -----END RSA PRIVATE KEY-----
+          ca_cert: |
+            -----BEGIN CERTIFICATE-----
+            ca_cert
+            -----END CERTIFICATE-----
+    release: loggregator-agent
+  - name: bpm
+    release: bpm
+  name: rmq
+  networks:
+  - name: default
+  persistent_disk_type: 100GB
+  stemcell: xenial
+  vm_type: n1-highmem-4
+- azs:
+  - z1
+  - z2
+  instances: 2
+  jobs:
+  - name: rabbitmq-haproxy
+    properties:
+      rabbitmq-haproxy:
+        do-not-configure-syslog: true
+    release: cf-rabbitmq
+  - consumes:
+      nats:
+        deployment: cf
+        from: nats
+    name: route_registrar
+    properties:
+      route_registrar:
+        routes:
+        - name: pivotal-rabbitmq
+          port: 15672
+          registration_interval: 20s
+          uris:
+          - pivotal-rabbitmq.bigelow.cf-rabbitmq.gcp.london.cf-app.com
+    release: routing
+  - name: bpm
+    release: bpm
+  - name: check-logs-test
+    properties:
+      check-logs-test:
+        files:
+        - /var/vcap/sys/log/rabbitmq-haproxy/haproxy.log
+    release: cf-rabbitmq-test
+  - name: syslog-configuration-test
+    properties:
+      syslog-configuration-test:
+        watched-log-files:
+        - /var/vcap/sys/log/rabbitmq-haproxy/haproxy.log
+        - /var/vcap/sys/log/route_registrar/route_registrar.err.log
+        - /var/vcap/sys/log/route_registrar/route_registrar.log
+    release: cf-rabbitmq-test
+  - name: permissions-test
+    properties:
+      permissions-test:
+        directories:
+        - /var/vcap/jobs/rabbitmq-haproxy/packages/haproxy
+        - /var/vcap/jobs/rabbitmq-haproxy/packages/rabbitmq-common
+        - /var/vcap/jobs/rabbitmq-haproxy/packages/rabbitmq-haproxy-metrics
+        - /var/vcap/sys/log
+    release: cf-rabbitmq-test
+  - name: service-metrics
+    properties:
+      service_metrics:
+        execution_interval_seconds: 30
+        metrics_command: /var/vcap/packages/rabbitmq-haproxy-metrics/bin/rabbitmq-haproxy-metrics
+        metrics_command_args:
+        - -haproxyNetwork=unix
+        - -haproxyAddress=/var/vcap/sys/run/rabbitmq-haproxy/haproxy.sock
+        - -logPath=/var/vcap/sys/log/service-metrics/rabbitmq-haproxy-metrics.log
+        mount_paths:
+        - /var/vcap/sys/run/rabbitmq-haproxy
+        origin: cf-rabbitmq
+        tls:
+          ca: ((service-metrics.ca))
+          cert: ((service-metrics.certificate))
+          key: ((service-metrics.private_key))
+    release: service-metrics
+  - name: rabbitmq-haproxy-metrics
+    release: rabbitmq-metrics
+  - name: syslog_forwarder
+    properties:
+      syslog:
+        address: logs4.papertrailapp.com
+        custom_rule: |
+          local2.*                        -/var/vcap/sys/log/rabbitmq-haproxy/haproxy.log
+
+          module(load="imfile")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-haproxy/haproxy.log"
+                Tag="rabbitmq_haproxy")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-haproxy/pre-start.stderr.log"
+                Tag="rabbitmq_haproxy_pre_start_stderr")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-haproxy/pre-start.stdout.log"
+                Tag="rabbitmq_haproxy_pre_start_stdout")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-haproxy/startup_stderr.log"
+                Tag="rabbitmq_haproxy_pre_startup_stderr")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/rabbitmq-haproxy/startup_stdout.log"
+                Tag="rabbitmq_haproxy_pre_startup_stdout")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/route_registrar/route_registrar.log"
+                Tag="rabbitmq_route_registrar_stdout")
+
+          input(type="imfile"
+                File="/var/vcap/sys/log/route_registrar/route_registrar.err.log"
+                Tag="rabbitmq_route_registrar_stderr")
+        forward_files: false
+        port: 51344
+        transport: tcp
+    release: syslog
+  - name: user_add
+    properties:
+      users:
+      - crypted_password: crypted_password
+        name: vcap
+    release: os-conf
+  - consumes:
+      doppler:
+        deployment: cf
+        from: doppler
+    name: loggregator_agent
+    properties:
+      deployment: cf-rabbitmq
+      loggregator:
+        tls:
+          agent:
+            cert: |
+              -----BEGIN CERTIFICATE-----
+              cert
+              -----END CERTIFICATE-----
+            key: |
+              -----BEGIN RSA PRIVATE KEY-----
+              key
+              -----END RSA PRIVATE KEY-----
+          ca_cert: |
+            -----BEGIN CERTIFICATE-----
+            ca_cert
+            -----END CERTIFICATE-----
+    release: loggregator-agent
+  name: haproxy
+  networks:
+  - name: default
+  stemcell: xenial
+  vm_type: n1-standard-1
+name: cf-rabbitmq
+releases:
+- name: cf-rabbitmq
+  version: latest
+- name: routing
+  version: latest
+- name: bpm
+  version: latest
+- name: cf-rabbitmq-test
+  version: latest
+- name: service-metrics
+  version: latest
+- name: rabbitmq-metrics
+  version: latest
+- name: syslog
+  version: latest
+- name: os-conf
+  version: latest
+- name: loggregator-agent
+  version: latest
+stemcells:
+- alias: xenial
+  os: ubuntu-xenial
+  version: 188.188
+update:
+  canaries: 1
+  canary_watch_time: 30000-180000
+  max_in_flight: 1
+  serial: false
+  update_watch_time: 30000-180000
+variables:
+- name: service-metrics
+  options:
+    ca: /services/tls_ca
+    common_name: service-metrics
+  type: certificate
