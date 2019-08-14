@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 )
 
@@ -34,7 +33,7 @@ func createBoard(name string) (string, error) {
 	url := "https://api.miro.com/v1/boards"
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	req.Header.Set("authorization", fmt.Sprintf("Bearer %v", miro_api_access_token))
 	req.Header.Set("content-type", "application/json")
